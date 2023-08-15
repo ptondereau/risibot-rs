@@ -22,9 +22,14 @@ async fn init(
         .build()
         .expect("failed to build http client");
     let risibank_client = risibank::Risibank::new(http_client);
+    let url = secret_store
+        .get("WEBHOOK_URL")
+        .expect("You need a WEBHOOK_URL key set for this to work!");
+    let url = reqwest::Url::parse(&url).unwrap();
 
     Ok(BotService {
         bot: Bot::new(teloxide_key),
+        webhook_url: url,
         risibank: risibank_client,
     })
 }

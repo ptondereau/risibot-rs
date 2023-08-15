@@ -1,22 +1,23 @@
 use std::sync::Arc;
 
-use teloxide::{prelude::*, Bot};
+use teloxide::{prelude::*, update_listeners::webhooks, Bot};
 
 use crate::{handlers::handle_inline, risibank::Risibank};
 
 pub struct BotService {
     pub bot: Bot,
     pub risibank: Risibank,
+    pub webhook_url: reqwest::Url,
 }
 
 #[shuttle_runtime::async_trait]
 impl shuttle_runtime::Service for BotService {
-    async fn bind(mut self, _addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
+    async fn bind(mut self, addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
         let share_self = Arc::new(self);
 
         tokio::spawn(async move {
             Arc::clone(&share_self)
-                .start()
+                .start(&addr)
                 .await
                 .expect("An error ocurred while using the bot!");
         });
@@ -26,17 +27,30 @@ impl shuttle_runtime::Service for BotService {
 }
 
 impl BotService {
-    async fn start(&self) -> Result<(), shuttle_runtime::CustomError> {
+    async fn start(
+        &self,
+        &addr: &std::net::SocketAddr,
+    ) -> Result<(), shuttle_runtime::CustomError> {
         let bot = self.bot.clone();
         let risibank = self.risibank.clone();
 
         let handler = Update::filter_inline_query().branch(dptree::endpoint(handle_inline));
 
+        let listener = webhooks::axum(
+            bot.clone(),
+            webhooks::Options::new(addr, self.webhook_url.clone()),
+        )
+        .await
+        .unwrap();
+
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()
             .dependencies(dptree::deps![risibank])
             .build()
-            .dispatch()
+            .dispatch_with_listener(
+                listener,
+                LoggingErrorHandler::with_custom_text("An error from the update listener"),
+            )
             .await;
 
         Ok(())

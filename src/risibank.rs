@@ -1,10 +1,5 @@
-use std::fmt;
-
 use reqwest::{Client, Url};
-use serde::{
-    de::{SeqAccess, Visitor},
-    Deserialize, Deserializer, Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RisibankSearchResult {
@@ -37,37 +32,4 @@ impl Risibank {
             .json::<RisibankSearchResult>()
             .await
     }
-}
-
-fn deserialize_stickers<'de, D>(deserializer: D) -> Result<Vec<Sticker>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct StickersVisitor;
-
-    impl<'de> Visitor<'de> for StickersVisitor {
-        type Value = Vec<Sticker>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a nonempty sequence of numbers")
-        }
-
-        fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
-        where
-            S: SeqAccess<'de>,
-        {
-            let mut vec: Vec<Sticker> = Vec::with_capacity(15);
-
-            while let Some(value) = seq.next_element()? {
-                vec.push(value);
-                if vec.len() == 15 {
-                    break;
-                }
-            }
-
-            Ok(vec)
-        }
-    }
-
-    deserializer.deserialize_seq(StickersVisitor)
 }

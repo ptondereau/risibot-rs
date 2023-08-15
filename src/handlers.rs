@@ -7,7 +7,7 @@ use crate::risibank::Risibank;
 
 pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> ResponseResult<()> {
     if q.query.is_empty() {
-        return respond(());
+        return Ok(());
     }
 
     let result = risibank.search(q.query.as_str()).await;
@@ -19,7 +19,7 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
             log::error!("Error in handler: {:?}", err);
         }
 
-        return respond(());
+        return Ok(());
     }
 
     let result = result.unwrap();
@@ -30,7 +30,7 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
             log::error!("Error in handler: {:?}", err);
         }
 
-        return respond(());
+        return Ok(());
     }
 
     let articles: Vec<InlineQueryResult> = result
@@ -61,5 +61,5 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
     if let Err(err) = response {
         log::error!("Error in handler: {:?}", err);
     }
-    respond(())
+    Ok(())
 }
