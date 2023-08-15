@@ -41,7 +41,7 @@ impl BotService {
             webhooks::Options::new(addr, self.webhook_url.clone()),
         )
         .await
-        .unwrap();
+        .expect("failed to build listener");
 
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()
