@@ -5,6 +5,7 @@ use shuttle_secrets::SecretStore;
 use teloxide::Bot;
 
 mod bot;
+mod handlers;
 mod risibank;
 
 #[shuttle_runtime::main]

@@ -11,7 +11,7 @@ pub struct RisibankSearchResult {
     pub stickers: Vec<Sticker>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sticker {
     pub risibank_link: Url,
     pub id: u64,
