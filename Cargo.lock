@@ -1580,11 +1580,12 @@ dependencies = [
 name = "risibot"
 version = "0.1.0"
 dependencies = [
- "axum",
  "log",
  "pretty_env_logger",
  "reqwest",
- "shuttle-axum",
+ "serde",
+ "serde-big-array",
+ "serde_json",
  "shuttle-runtime",
  "shuttle-secrets",
  "teloxide",
@@ -1730,6 +1731,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.183"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1803,16 +1813,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "shuttle-axum"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23b959b29c95809b4d7394081aaacbebad0926210f8306c499189a1e982107d"
-dependencies = [
- "axum",
- "shuttle-runtime",
 ]
 
 [[package]]

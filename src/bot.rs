@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use teloxide::{
     prelude::*,
-    types::{
-        InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContent,
-        InputMessageContentText,
-    },
+    types::{InlineQuery, InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto},
     Bot,
 };
 
+use crate::risibank::Risibank;
+
 pub struct BotService {
     pub bot: Bot,
+    pub risibank: Risibank,
 }
 
 #[shuttle_runtime::async_trait]
@@ -32,51 +32,61 @@ impl shuttle_runtime::Service for BotService {
 impl BotService {
     async fn start(&self) -> Result<(), shuttle_runtime::CustomError> {
         let bot = self.bot.clone();
+        let risibank = self.risibank.clone();
 
         let handler = Update::filter_inline_query().branch(dptree::endpoint(
-            |bot: Bot, q: InlineQuery| async move {
-                // First, create your actual response
-                let google_search = InlineQueryResultArticle::new(
-                    // Each item needs a unique ID, as well as the response container for the
-                    // items. These can be whatever, as long as they don't
-                    // conflict.
-                    "01".to_string(),
-                    // What the user will actually see
-                    "Google Search",
-                    // What message will be sent when clicked/tapped
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "https://www.google.com/search?q={}",
-                        q.query,
-                    ))),
-                );
-                // While constructing them from the struct itself is possible, it is preferred
-                // to use the builder pattern if you wish to add more
-                // information to your result. Please refer to the documentation
-                // for more detailed information about each field. https://docs.rs/teloxide/latest/teloxide/types/struct.InlineQueryResultArticle.html
-                let ddg_search = InlineQueryResultArticle::new(
-                    "02".to_string(),
-                    "DuckDuckGo Search".to_string(),
-                    InputMessageContent::Text(InputMessageContentText::new(format!(
-                        "https://duckduckgo.com/?q={}",
-                        q.query
-                    ))),
-                )
-                .description("DuckDuckGo Search")
-                .thumb_url(
-                    "https://duckduckgo.com/assets/logo_header.v108.png"
-                        .parse()
-                        .unwrap(),
-                )
-                .url("https://duckduckgo.com/about".parse().unwrap()); // Note: This is the url that will open if they click the thumbnail
+            |bot: Bot, q: InlineQuery, risibank: Risibank| async move {
+                if q.query.is_empty() {
+                    return respond(());
+                }
 
-                let results = vec![
-                    InlineQueryResult::Article(google_search),
-                    InlineQueryResult::Article(ddg_search),
-                ];
+                let result = risibank.search(q.query.as_str()).await;
 
-                // Send it off! One thing to note -- the ID we use here must be of the query
-                // we're responding to.
-                let response = bot.answer_inline_query(&q.id, results).send().await;
+                if let Err(err) = result {
+                    log::error!("Error in handler: {:?}", err);
+                    let response = bot.answer_inline_query(&q.id, []).send().await;
+                    if let Err(err) = response {
+                        log::error!("Error in handler: {:?}", err);
+                    }
+
+                    return respond(());
+                }
+
+                let result = result.unwrap();
+
+                if result.stickers.is_empty() {
+                    let response = bot.answer_inline_query(&q.id, []).send().await;
+                    if let Err(err) = response {
+                        log::error!("Error in handler: {:?}", err);
+                    }
+
+                    return respond(());
+                }
+
+                let articles: Vec<InlineQueryResult> = result
+                    .stickers
+                    .iter()
+                    .map(|sticker| match sticker.ext.as_str() {
+                        "gif" => {
+                            let article = InlineQueryResultGif::new(
+                                sticker.id.to_string(),
+                                sticker.risibank_link.clone(),
+                                sticker.risibank_link.clone(),
+                            );
+                            InlineQueryResult::Gif(article)
+                        }
+                        _ => {
+                            let article = InlineQueryResultPhoto::new(
+                                sticker.id.to_string(),
+                                sticker.risibank_link.clone(),
+                                sticker.risibank_link.clone(),
+                            );
+                            InlineQueryResult::Photo(article)
+                        }
+                    })
+                    .collect();
+
+                let response = bot.answer_inline_query(&q.id, articles).send().await;
                 if let Err(err) = response {
                     log::error!("Error in handler: {:?}", err);
                 }
@@ -86,6 +96,7 @@ impl BotService {
 
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()
+            .dependencies(dptree::deps![risibank])
             .build()
             .dispatch()
             .await;
