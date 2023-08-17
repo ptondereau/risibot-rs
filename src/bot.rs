@@ -1,7 +1,14 @@
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 
-use log::{debug, info};
-use teloxide::{prelude::*, update_listeners::webhooks, Bot};
+use log::info;
+use teloxide::{
+    prelude::*,
+    update_listeners::{
+        webhooks::{axum_to_router, Options},
+        UpdateListener,
+    },
+    Bot,
+};
 
 use crate::{handlers::handle_inline, risibank::Risibank};
 
@@ -18,39 +25,34 @@ impl shuttle_runtime::Service for BotService {
 
         info!("Booting tokio tasks");
 
-        tokio::spawn(async move {
-            Arc::clone(&share_self)
-                .start(&addr)
-                .await
-                .expect("An error ocurred while using the bot!");
-        });
+        let options = Options::new(addr, share_self.webhook_url.clone());
+        let (update_listener, stop_flag, app) = axum_to_router(&share_self.bot, options)
+            .await
+            .expect("failed to bind");
 
-        Ok(())
+        let axum = axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(stop_flag);
+
+        let bot_service = Arc::clone(&share_self);
+
+        tokio::select! {
+            _ = axum => Ok(()),
+            _ = bot_service.start(update_listener) => Ok(()),
+        }
     }
 }
 
 impl BotService {
     async fn start(
         &self,
-        &addr: &std::net::SocketAddr,
+        listener: impl UpdateListener<Err = Infallible>,
     ) -> Result<(), shuttle_runtime::CustomError> {
         info!("Starting bot");
         let bot = self.bot.clone();
         let risibank = self.risibank.clone();
 
         let handler = Update::filter_inline_query().branch(dptree::endpoint(handle_inline));
-
-        let listener = webhooks::axum(
-            bot.clone(),
-            webhooks::Options::new(addr, self.webhook_url.clone()),
-        )
-        .await
-        .expect("failed to build listener");
-
-        debug!(
-            "Listener created with addr {:?} and webhook url {:?}",
-            addr, self.webhook_url
-        );
 
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()
