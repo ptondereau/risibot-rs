@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::{debug, info};
 use teloxide::{prelude::*, update_listeners::webhooks, Bot};
 
 use crate::{handlers::handle_inline, risibank::Risibank};
@@ -14,6 +15,8 @@ pub struct BotService {
 impl shuttle_runtime::Service for BotService {
     async fn bind(mut self, addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
         let share_self = Arc::new(self);
+
+        info!("Booting tokio tasks");
 
         tokio::spawn(async move {
             Arc::clone(&share_self)
@@ -31,6 +34,7 @@ impl BotService {
         &self,
         &addr: &std::net::SocketAddr,
     ) -> Result<(), shuttle_runtime::CustomError> {
+        info!("Starting bot");
         let bot = self.bot.clone();
         let risibank = self.risibank.clone();
 
@@ -42,6 +46,11 @@ impl BotService {
         )
         .await
         .expect("failed to build listener");
+
+        debug!(
+            "Listener created with addr {:?} and webhook url {:?}",
+            addr, self.webhook_url
+        );
 
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()

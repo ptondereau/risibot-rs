@@ -1,3 +1,4 @@
+use log::{debug, info};
 use teloxide::{
     prelude::*,
     types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto},
@@ -7,9 +8,11 @@ use crate::risibank::Risibank;
 
 pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> ResponseResult<()> {
     if q.query.is_empty() {
+        debug!("Empty query");
         return Ok(());
     }
 
+    debug!("Query: {}", q.query);
     let result = risibank.search(q.query.as_str()).await;
 
     if let Err(err) = result {
@@ -61,5 +64,6 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
     if let Err(err) = response {
         log::error!("Error in handler: {:?}", err);
     }
+    info!("Answered inline query");
     Ok(())
 }
