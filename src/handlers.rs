@@ -60,7 +60,11 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
         })
         .collect();
 
-    let response = bot.answer_inline_query(&q.id, articles).send().await;
+    let response = bot
+        .answer_inline_query(&q.id, articles)
+        .cache_time(0)
+        .send()
+        .await;
     if let Err(err) = response {
         log::error!("Error in handler: {:?}", err);
     }
