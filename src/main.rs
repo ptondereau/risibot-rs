@@ -25,7 +25,7 @@ async fn init(
     let url = secret_store
         .get("WEBHOOK_URL")
         .expect("You need a WEBHOOK_URL key set for this to work!");
-    let url = reqwest::Url::parse(&url).unwrap();
+    let url = reqwest::Url::parse(url.as_str()).unwrap();
 
     Ok(BotService {
         bot: Bot::new(teloxide_key),
