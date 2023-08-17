@@ -1,0 +1,26 @@
+on:
+  push:
+    branches:
+      - "main"
+
+name: Continous integration
+jobs:
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup toolchain install stable --profile minimal
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup component add clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+  deploy:
+    runs-on: ubuntu-latest
+    needs: clippy_check
+    steps:
+      - uses: shuttle-hq/deploy-action@main
+        with:
+          deploy-key: ${{ secrets.SHUTTLE_DEPLOY_KEY }}
+          no-test: "true"
