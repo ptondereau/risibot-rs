@@ -1,5 +1,6 @@
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
+use teloxide::types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RisibankSearchResult {
@@ -31,5 +32,31 @@ impl Risibank {
             .await?
             .json::<RisibankSearchResult>()
             .await
+    }
+}
+
+/// Converts a `Sticker` to an `InlineQueryResult` enum
+/// This adds a behavior when we found gifs, we notify Telegram that it's a gif
+impl From<&Sticker> for InlineQueryResult {
+    fn from(sticker: &Sticker) -> InlineQueryResult {
+        match sticker.ext.as_str() {
+            "gif" => InlineQueryResult::Gif(InlineQueryResultGif::new(
+                sticker.id.to_string(),
+                sticker.risibank_link.clone(),
+                sticker.risibank_link.clone(),
+            )),
+            _ => InlineQueryResult::Photo(InlineQueryResultPhoto::new(
+                sticker.id.to_string(),
+                sticker.risibank_link.clone(),
+                sticker.risibank_link.clone(),
+            )),
+        }
+    }
+}
+
+/// We take only the first 15th elements
+impl From<RisibankSearchResult> for Vec<InlineQueryResult> {
+    fn from(result: RisibankSearchResult) -> Vec<InlineQueryResult> {
+        result.stickers.iter().take(15).map(|s| s.into()).collect()
     }
 }

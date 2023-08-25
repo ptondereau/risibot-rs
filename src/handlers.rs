@@ -1,8 +1,5 @@
 use log::{debug, info};
-use teloxide::{
-    prelude::*,
-    types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto},
-};
+use teloxide::{prelude::*, types::InlineQueryResult};
 
 use crate::risibank::Risibank;
 
@@ -36,29 +33,7 @@ pub async fn handle_inline(bot: Bot, q: InlineQuery, risibank: Risibank) -> Resp
         return Ok(());
     }
 
-    let articles: Vec<InlineQueryResult> = result
-        .stickers
-        .iter()
-        .take(15)
-        .map(|sticker| match sticker.ext.as_str() {
-            "gif" => {
-                let article = InlineQueryResultGif::new(
-                    sticker.id.to_string(),
-                    sticker.risibank_link.clone(),
-                    sticker.risibank_link.clone(),
-                );
-                InlineQueryResult::Gif(article)
-            }
-            _ => {
-                let article = InlineQueryResultPhoto::new(
-                    sticker.id.to_string(),
-                    sticker.risibank_link.clone(),
-                    sticker.risibank_link.clone(),
-                );
-                InlineQueryResult::Photo(article)
-            }
-        })
-        .collect();
+    let articles: Vec<InlineQueryResult> = result.into();
 
     let response = bot
         .answer_inline_query(&q.id, articles)
