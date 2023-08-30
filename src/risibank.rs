@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use teloxide::types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto};
@@ -11,7 +13,7 @@ pub struct RisibankSearchResult {
 pub struct Sticker {
     pub risibank_link: Url,
     pub id: u64,
-    pub ext: String,
+    pub ext: Cow<'static, str>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +41,7 @@ impl Risibank {
 /// This adds a behavior when we found gifs, we notify Telegram that it's a gif
 impl From<&Sticker> for InlineQueryResult {
     fn from(sticker: &Sticker) -> InlineQueryResult {
-        match sticker.ext.as_str() {
+        match sticker.ext.as_ref() {
             "gif" => InlineQueryResult::Gif(InlineQueryResultGif::new(
                 sticker.id.to_string(),
                 sticker.risibank_link.clone(),
