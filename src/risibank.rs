@@ -1,8 +1,9 @@
-use std::borrow::Cow;
-
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use teloxide::types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto};
+
+const MAX_RESULTS: usize = 15;
+const API_BASE_URL: &str = "https://risibank.fr/api/v0";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RisibankSearchResult {
@@ -13,7 +14,7 @@ pub struct RisibankSearchResult {
 pub struct Sticker {
     pub risibank_link: Url,
     pub id: u64,
-    pub ext: Cow<'static, str>,
+    pub ext: String,
 }
 
 #[derive(Debug, Clone)]
@@ -28,7 +29,7 @@ impl Risibank {
 
     pub async fn search(&self, query: &str) -> Result<RisibankSearchResult, reqwest::Error> {
         self.client
-            .get("https://risibank.fr/api/v0/search")
+            .get(format!("{}/search", API_BASE_URL))
             .query(&[("search", query)])
             .send()
             .await?
@@ -41,17 +42,12 @@ impl Risibank {
 /// This adds a behavior when we found gifs, we notify Telegram that it's a gif
 impl From<&Sticker> for InlineQueryResult {
     fn from(sticker: &Sticker) -> InlineQueryResult {
-        match sticker.ext.as_ref() {
-            "gif" => InlineQueryResult::Gif(InlineQueryResultGif::new(
-                sticker.id.to_string(),
-                sticker.risibank_link.clone(),
-                sticker.risibank_link.clone(),
-            )),
-            _ => InlineQueryResult::Photo(InlineQueryResultPhoto::new(
-                sticker.id.to_string(),
-                sticker.risibank_link.clone(),
-                sticker.risibank_link.clone(),
-            )),
+        let id = sticker.id.to_string();
+        let url = sticker.risibank_link.clone();
+
+        match sticker.ext.as_str() {
+            "gif" => InlineQueryResult::Gif(InlineQueryResultGif::new(id, url.clone(), url)),
+            _ => InlineQueryResult::Photo(InlineQueryResultPhoto::new(id, url.clone(), url)),
         }
     }
 }
@@ -59,6 +55,11 @@ impl From<&Sticker> for InlineQueryResult {
 /// We take only the first 15th elements
 impl From<RisibankSearchResult> for Vec<InlineQueryResult> {
     fn from(result: RisibankSearchResult) -> Vec<InlineQueryResult> {
-        result.stickers.iter().take(15).map(|s| s.into()).collect()
+        result
+            .stickers
+            .iter()
+            .take(MAX_RESULTS)
+            .map(Into::into)
+            .collect()
     }
 }
