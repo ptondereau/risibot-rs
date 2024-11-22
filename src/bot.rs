@@ -4,7 +4,7 @@ use log::info;
 use teloxide::{
     prelude::*,
     update_listeners::{
-        webhooks::{axum_to_router, Options},
+        webhooks::{axum, Options},
         UpdateListener,
     },
     Bot,
@@ -26,19 +26,14 @@ impl shuttle_runtime::Service for BotService {
         info!("Booting tokio tasks");
 
         let options = Options::new(addr, share_self.webhook_url.clone());
-        let (update_listener, stop_flag, app) = axum_to_router(&share_self.bot, options)
+        let update_listeners = axum(share_self.bot.clone(), options)
             .await
             .expect("failed to bind");
-
-        let axum = axum::Server::bind(&addr)
-            .serve(app.into_make_service())
-            .with_graceful_shutdown(stop_flag);
 
         let bot_service = Arc::clone(&share_self);
 
         tokio::select! {
-            _ = axum => Ok(()),
-            _ = bot_service.start(update_listener) => Ok(()),
+            _ = bot_service.start(update_listeners) => Ok(()),
         }
     }
 }
