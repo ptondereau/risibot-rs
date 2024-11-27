@@ -30,10 +30,8 @@ impl shuttle_runtime::Service for BotService {
             .await
             .expect("failed to bind");
 
-        let bot_service = Arc::clone(&share_self);
-
         tokio::select! {
-            _ = bot_service.start(update_listeners) => Ok(()),
+            _ = share_self.start(update_listeners) => Ok(()),
         }
     }
 }
