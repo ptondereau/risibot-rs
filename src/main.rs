@@ -19,6 +19,8 @@ async fn init(
     let http_client = reqwest::ClientBuilder::new()
         .connect_timeout(Duration::from_secs(1))
         .timeout(Duration::from_secs(1))
+        .pool_idle_timeout(Duration::from_secs(5))
+        .pool_max_idle_per_host(1)
         .build()
         .expect("failed to build http client");
     let risibank_client = risibank::Risibank::new(http_client);

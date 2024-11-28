@@ -1,9 +1,22 @@
-use reqwest::{Client, Url};
+use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use teloxide::types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto};
+use thiserror::Error;
 
 const MAX_RESULTS: usize = 15;
 const API_BASE_URL: &str = "https://risibank.fr/api/v0";
+
+#[derive(Error, Debug)]
+pub enum RisibankError {
+    #[error("HTTP request failed: {0}")]
+    RequestError(#[from] reqwest::Error),
+
+    #[error("Rate limit exceeded")]
+    RateLimit,
+
+    #[error("Invalid response format: {0}")]
+    InvalidResponse(String),
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RisibankSearchResult {
@@ -27,14 +40,25 @@ impl Risibank {
         Self { client }
     }
 
-    pub async fn search(&self, query: &str) -> Result<RisibankSearchResult, reqwest::Error> {
-        self.client
+    pub async fn search(&self, query: &str) -> Result<RisibankSearchResult, RisibankError> {
+        let response = self
+            .client
             .get(format!("{}/search", API_BASE_URL))
             .query(&[("search", query)])
             .send()
-            .await?
-            .json::<RisibankSearchResult>()
-            .await
+            .await?;
+
+        match response.status() {
+            status if status.is_success() => {
+                let result = response.json::<RisibankSearchResult>().await?;
+                Ok(result)
+            }
+            status if status == StatusCode::TOO_MANY_REQUESTS => Err(RisibankError::RateLimit),
+            status => Err(RisibankError::InvalidResponse(format!(
+                "Unexpected status code: {}",
+                status
+            ))),
+        }
     }
 }
 
