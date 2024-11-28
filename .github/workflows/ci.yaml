@@ -16,7 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: clippy_check
     steps:
-      - uses: shuttle-hq/deploy-action@main
+      - uses: shuttle-hq/deploy-action@v2
         with:
-          deploy-key: ${{ secrets.SHUTTLE_DEPLOY_KEY }}
-          no-test: "true"
+          shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
+          project-id: proj_01JDSWHDHZB8MK3T9C8W8VC575
+          secrets: |
+            WEBHOOK_URL = '${{ secrets.WEBHOOK_URL }}'
+            TELOXIDE_TOKEN = '${{ secrets.TELOXIDE_TOKEN }}'
