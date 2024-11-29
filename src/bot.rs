@@ -30,9 +30,9 @@ impl shuttle_runtime::Service for BotService {
             .await
             .expect("failed to bind");
 
-        tokio::select! {
-            _ = share_self.start(update_listeners) => Ok(()),
-        }
+        share_self.start(update_listeners).await?;
+
+        Ok(())
     }
 }
 

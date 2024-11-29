@@ -33,17 +33,21 @@ pub struct Sticker {
 #[derive(Debug, Clone)]
 pub struct Risibank {
     client: Client,
+    base_url: String,
 }
 
 impl Risibank {
     pub fn new(client: Client) -> Self {
-        Self { client }
+        Self {
+            client,
+            base_url: API_BASE_URL.to_string(),
+        }
     }
 
     pub async fn search(&self, query: &str) -> Result<RisibankSearchResult, RisibankError> {
         let response = self
             .client
-            .get(format!("{}/search", API_BASE_URL))
+            .get(format!("{}/search", self.base_url))
             .query(&[("search", query)])
             .send()
             .await?;
@@ -85,5 +89,111 @@ impl From<RisibankSearchResult> for Vec<InlineQueryResult> {
             .take(MAX_RESULTS)
             .map(Into::into)
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::Client;
+    use std::str::FromStr;
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    // Helper function to create a test sticker
+    fn create_test_sticker(id: u64, ext: &str) -> Sticker {
+        Sticker {
+            risibank_link: Url::from_str(&format!("https://risibank.fr/media/{}.{}", id, ext))
+                .unwrap(),
+            id,
+            ext: ext.to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_success() {
+        let mock_server = MockServer::start().await;
+
+        // Prepare mock response
+        let response = RisibankSearchResult {
+            stickers: vec![create_test_sticker(1, "jpg"), create_test_sticker(2, "gif")],
+        };
+
+        Mock::given(method("GET"))
+            .and(path("/search")) // Updated path
+            .and(query_param("search", "test"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response))
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new();
+        let mut risibank = Risibank::new(client);
+        // Use a test-specific URI instead of the constant
+        risibank.base_url = mock_server.uri();
+
+        let result = risibank.search("test").await.unwrap();
+
+        assert_eq!(result.stickers.len(), 2);
+        assert_eq!(result.stickers[0].id, 1);
+        assert_eq!(result.stickers[0].ext, "jpg");
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/search")) // Updated path
+            .respond_with(ResponseTemplate::new(429))
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new();
+        let mut risibank = Risibank::new(client);
+        // Use a test-specific URI instead of the constant
+        risibank.base_url = mock_server.uri();
+
+        let result = risibank.search("test").await;
+
+        assert!(matches!(result.unwrap_err(), RisibankError::RateLimit));
+    }
+
+    #[tokio::test]
+    async fn test_sticker_to_inline_query_result() {
+        let photo_sticker = create_test_sticker(1, "jpg");
+        let gif_sticker = create_test_sticker(2, "gif");
+
+        let photo_result = InlineQueryResult::from(&photo_sticker);
+        let gif_result = InlineQueryResult::from(&gif_sticker);
+
+        assert!(matches!(photo_result, InlineQueryResult::Photo(_)));
+        assert!(matches!(gif_result, InlineQueryResult::Gif(_)));
+    }
+
+    #[tokio::test]
+    async fn test_search_result_conversion() {
+        let stickers = vec![
+            create_test_sticker(1, "jpg"),
+            create_test_sticker(2, "gif"),
+            create_test_sticker(3, "png"),
+        ];
+
+        let search_result = RisibankSearchResult { stickers };
+        let inline_results: Vec<InlineQueryResult> = search_result.into();
+
+        assert_eq!(inline_results.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_max_results_limit() {
+        let mut stickers = Vec::new();
+        for i in 0..20 {
+            stickers.push(create_test_sticker(i, "jpg"));
+        }
+
+        let search_result = RisibankSearchResult { stickers };
+        let inline_results: Vec<InlineQueryResult> = search_result.into();
+
+        assert_eq!(inline_results.len(), MAX_RESULTS);
     }
 }
