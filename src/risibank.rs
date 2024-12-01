@@ -1,4 +1,5 @@
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{StatusCode, Url};
+use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 use teloxide::types::{InlineQueryResult, InlineQueryResultGif, InlineQueryResultPhoto};
 use thiserror::Error;
@@ -8,6 +9,9 @@ const API_BASE_URL: &str = "https://risibank.fr/api/v0";
 
 #[derive(Error, Debug)]
 pub enum RisibankError {
+    #[error("HTTP request failed: {0}")]
+    RequestMiddlewareError(#[from] reqwest_middleware::Error),
+
     #[error("HTTP request failed: {0}")]
     RequestError(#[from] reqwest::Error),
 
@@ -32,12 +36,12 @@ pub struct Sticker {
 
 #[derive(Debug, Clone)]
 pub struct Risibank {
-    client: Client,
+    client: ClientWithMiddleware,
     base_url: String,
 }
 
 impl Risibank {
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: ClientWithMiddleware) -> Self {
         Self {
             client,
             base_url: API_BASE_URL.to_string(),
@@ -96,6 +100,7 @@ impl From<RisibankSearchResult> for Vec<InlineQueryResult> {
 mod tests {
     use super::*;
     use reqwest::Client;
+    use reqwest_middleware::ClientBuilder;
     use std::str::FromStr;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -127,6 +132,7 @@ mod tests {
             .await;
 
         let client = Client::new();
+        let client = ClientBuilder::new(client).build();
         let mut risibank = Risibank::new(client);
         // Use a test-specific URI instead of the constant
         risibank.base_url = mock_server.uri();
@@ -149,6 +155,7 @@ mod tests {
             .await;
 
         let client = Client::new();
+        let client = ClientBuilder::new(client).build();
         let mut risibank = Risibank::new(client);
         // Use a test-specific URI instead of the constant
         risibank.base_url = mock_server.uri();
