@@ -57,17 +57,9 @@ async fn main() {
         .parse()
         .expect("PORT must be a number");
 
-    // Start the bot and listen for updates
     log::info!("Starting bot on port {}", port);
 
-    // Here you should implement your bot's startup logic
-    // This will depend on how your BotService is structured
-    // For example:
     bot_service.start_webhook(port).await;
 
-    // Keep the application running
-    tokio::signal::ctrl_c()
-        .await
-        .expect("Failed to listen for Ctrl+C");
     log::info!("Shutting down gracefully");
 }

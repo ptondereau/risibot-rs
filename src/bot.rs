@@ -19,11 +19,6 @@ impl BotService {
         let bot: Bot = self.bot.clone();
         let risibank = self.risibank.clone();
 
-        // Set up the webhook
-        bot.set_webhook(self.webhook_url.clone())
-            .await
-            .expect("Failed to set webhook");
-
         let addr = ([127, 0, 0, 1], port).into();
 
         // Create webhook server
@@ -44,6 +39,6 @@ impl BotService {
                 listener,
                 LoggingErrorHandler::with_custom_text("An error from the update listener"),
             )
-            .await
+            .await;
     }
 }
