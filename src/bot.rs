@@ -1,12 +1,6 @@
-use std::{convert::Infallible, sync::Arc};
-
-use log::info;
 use teloxide::{
     prelude::*,
-    update_listeners::{
-        webhooks::{axum, Options},
-        UpdateListener,
-    },
+    update_listeners::webhooks::{self, axum},
     Bot,
 };
 
@@ -18,34 +12,29 @@ pub struct BotService {
     pub webhook_url: reqwest::Url,
 }
 
-#[shuttle_runtime::async_trait]
-impl shuttle_runtime::Service for BotService {
-    async fn bind(mut self, addr: std::net::SocketAddr) -> Result<(), shuttle_runtime::Error> {
-        let share_self = Arc::new(self);
-
-        info!("Booting tokio tasks");
-
-        let options = Options::new(addr, share_self.webhook_url.clone());
-        let update_listeners = axum(share_self.bot.clone(), options)
-            .await
-            .expect("failed to bind");
-
-        share_self.start(update_listeners).await?;
-
-        Ok(())
-    }
-}
-
 impl BotService {
-    async fn start(
-        &self,
-        listener: impl UpdateListener<Err = Infallible>,
-    ) -> Result<(), shuttle_runtime::CustomError> {
-        info!("Starting bot");
-        let bot = self.bot.clone();
+    pub async fn start_webhook(&self, port: u16) {
+        log::info!("Setting webhook to {}", self.webhook_url);
+
+        let bot: Bot = self.bot.clone();
         let risibank = self.risibank.clone();
 
+        // Set up the webhook
+        bot.set_webhook(self.webhook_url.clone())
+            .await
+            .expect("Failed to set webhook");
+
+        let addr = ([127, 0, 0, 1], port).into();
+
+        // Create webhook server
         let handler = Update::filter_inline_query().branch(dptree::endpoint(handle_inline));
+
+        let listener = axum(
+            bot.clone(),
+            webhooks::Options::new(addr, self.webhook_url.clone()),
+        )
+        .await
+        .expect("Failed to create webhook listener");
 
         Dispatcher::builder(bot, handler)
             .enable_ctrlc_handler()
@@ -55,8 +44,6 @@ impl BotService {
                 listener,
                 LoggingErrorHandler::with_custom_text("An error from the update listener"),
             )
-            .await;
-
-        Ok(())
+            .await
     }
 }
