@@ -26,9 +26,10 @@ async fn main() {
 
     let http_client = reqwest::ClientBuilder::new()
         .connect_timeout(Duration::from_secs(1))
-        .timeout(Duration::from_secs(1))
-        .pool_idle_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(3))
+        .pool_idle_timeout(Duration::from_secs(2))
         .pool_max_idle_per_host(1)
+        .use_rustls_tls()
         .build()
         .expect("failed to build http client");
 
